@@ -1,0 +1,46 @@
+name: Update town map CSVs
+
+on:
+  # Primary trigger: external cron service calls the workflow_dispatch API
+  # every 5 minutes (see README).
+  workflow_dispatch: {}
+
+  # Fallback only; GitHub's scheduler can run very late. Limited to election
+  # night (00:00-07:59 UTC on Nov 4 = 7pm-2:59am ET). Delete after the election.
+  schedule:
+    - cron: "7,22,37,52 0-7 4 11 *"
+
+concurrency:
+  group: update-map
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Fetch town-level feed and write map CSVs
+        run: python fetch_town_maps.py
+
+      - name: Commit and push if anything changed
+        if: success()
+        run: |
+          git config user.name "results-bot"
+          git config user.email "results-bot@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "No change in results, nothing to commit."
+          else
+            git commit -m "Update map results $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            git pull --rebase --autostash
+            git push
+          fi

@@ -1,0 +1,14 @@
+{
+  "feed_url": "https://static.electionresults.vermont.gov/elections/rss/68d61e96-1d28-4210-8c1d-8e90512ae105/election-result-data.xml",
+  "output_dir": "data",
+  "maps": [
+    {
+      "slug": "map-governor",
+      "office": "GOVERNOR",
+      "party_map": {
+        "DEM/PROG": "D",
+        "REPUBLICAN": "R"
+      }
+    }
+  ]
+}
