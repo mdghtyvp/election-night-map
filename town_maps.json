@@ -10,5 +10,9 @@
         "REPUBLICAN": "R"
       }
     }
-  ]
+  ],
+  "town_names": {
+    "ESSEX TOWN": "Essex",
+    "ESSEX JUNCTION CITY": "Essex Junction"
+  }
 }
