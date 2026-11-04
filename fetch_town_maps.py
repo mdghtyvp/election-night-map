@@ -128,12 +128,14 @@ def collect(root, office_name):
     return candidates, towns
 
 
-def build(candidates, towns, party_map, overrides):
+def build(candidates, towns, party_map, overrides, town_names=None):
+    # Optional renames so the Town column matches the Datawrapper basemap's spelling.
+    town_names = {norm(k): v for k, v in (town_names or {}).items()}
     labels = {cid: display_name(c["name"], c["party"], overrides) for cid, c in candidates.items()}
     # Stable column order: alphabetical by candidate name (not by who's winning).
     order = sorted(candidates, key=lambda cid: candidates[cid]["name"])
 
-    fields = ["Town", "County", "Id", "Margin", "Leader", "LeaderParty", "TotalVotes"]
+    fields = ["Town", "County", "Id", "Margin", "Leader", "LeaderParty", "LeadMargin", "LeadLabel", "TotalVotes"]
     for cid in order:
         fields += [f"{labels[cid]} votes", f"{labels[cid]} %"]
 
@@ -142,13 +144,15 @@ def build(candidates, towns, party_map, overrides):
         votes = {cid: t["votes"].get(cid, 0) for cid in order}
         total = sum(votes.values())
         row = {
-            "Town": title_case(t["name"]),
+            "Town": town_names.get(norm(t["name"])) or title_case(t["name"]),
             "County": title_case(t["county"]),
             "Id": tid,
             "TotalVotes": total,
             "Margin": "",
             "Leader": "",
             "LeaderParty": "",
+            "LeadMargin": "",
+            "LeadLabel": "",
         }
         for cid in order:
             row[f"{labels[cid]} votes"] = votes[cid]
@@ -159,14 +163,18 @@ def build(candidates, towns, party_map, overrides):
             lead = votes[first]
             gap = lead - (votes[second] if second else 0)
             tied = second is not None and gap == 0
+            pts = round(gap / total * 100, 1)
+            # Always-positive lead for tooltips (works for any leader, incl. independents)
+            row["LeadMargin"] = pts
             if tied:
                 row["Leader"] = "Tie"
                 row["Margin"] = 0.0
+                row["LeadLabel"] = "Tie"
             else:
                 row["Leader"] = labels[first]
                 code = party_map.get(candidates[first]["party"], "")
                 row["LeaderParty"] = code or candidates[first]["party"].title()
-                pts = round(gap / total * 100, 1)
+                row["LeadLabel"] = f"{labels[first]} +{pts}%"
                 if code == "D":
                     row["Margin"] = pts
                 elif code == "R":
@@ -216,7 +224,9 @@ def main():
             candidates, towns = collect(root, m["office"])
             if len(candidates) < 1 or not towns:
                 raise ValueError("no candidates or towns found")
-            fields, rows, labels, order = build(candidates, towns, m.get("party_map", {}), overrides)
+            fields, rows, labels, order = build(
+                candidates, towns, m.get("party_map", {}), overrides, config.get("town_names")
+            )
             status = write_if_changed(out_dir / f"{slug}.csv", render(fields, rows))
 
             # Statewide totals + precincts reporting, for a companion chart / chart notes.
